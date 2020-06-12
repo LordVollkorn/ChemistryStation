@@ -1,8 +1,8 @@
-/obj/item/portable_chem_dispenser
-	name = "Portable Chemical Dispenser" //Thanks to antropod for the help
-	desc = "A miniaturized version of a chemical dispenser attached to a belt. The label indicates that the power cell needs to be taken out with a screwdriver to recharge it. It seems as if the integrated stock parts are proprietary and cannot be upgraded. An imprint on the side reads S&T."
+/obj/item/portable_chem_mixer
+	name = "Portable Chemical Mixer" //Thanks to antropod for the help
+	desc = "A chemical Mixer. We are still working on it and it won't create chemicals from thin air."
 	icon = 'icons/obj/chemical.dmi'
-	icon_state = "portablechemicaldispenser_empty"
+	icon_state = "portablechemicalmixer_empty"
 	w_class = WEIGHT_CLASS_HUGE
 	slot_flags = ITEM_SLOT_BELT
 	equip_sound = 'sound/items/equip/toolbelt_equip.ogg'
@@ -31,7 +31,7 @@
 		/datum/reagent/iodine,
 		/datum/reagent/iron,
 		/datum/reagent/lithium,
-		///datum/reagent/mercury,
+		/datum/reagent/mercury,
 		/datum/reagent/nitrogen,
 		/datum/reagent/oxygen,
 		/datum/reagent/phosphorus,
@@ -40,9 +40,9 @@
 		/datum/reagent/silicon,
 		/datum/reagent/silver,
 		/datum/reagent/sodium,
-		///datum/reagent/stable_plasma,
+		/datum/reagent/stable_plasma,
 		/datum/reagent/consumable/sugar,
-		///datum/reagent/sulfur,
+		/datum/reagent/sulfur,
 		/datum/reagent/toxin/acid,
 		/datum/reagent/water,
 		/datum/reagent/fuel
@@ -60,11 +60,11 @@
 	var/list/saved_recipes = list()
 
 
-/obj/item/portable_chem_dispenser/get_cell()
+/obj/item/portable_chem_mixer/get_cell()
 	return cell
 
 
-/obj/item/portable_chem_dispenser/proc/is_operational()
+/obj/item/portable_chem_mixer/proc/is_operational()
 	return !(machine_stat & (NOPOWER|BROKEN|MAINT))
 
 
@@ -72,7 +72,7 @@
 //	Add and remove beakers and power cells
 //----------------------------------------------------------------------------------------------------------
 
-/obj/item/portable_chem_dispenser/attackby(obj/item/I, mob/user, params)
+/obj/item/portable_chem_mixer/attackby(obj/item/I, mob/user, params)
 	if(istype(I, /obj/item/reagent_containers) && !(I.item_flags & ABSTRACT) && I.is_open_container())
 		var/obj/item/reagent_containers/B = I
 		. = TRUE //no afterattack
@@ -80,16 +80,16 @@
 			return
 		replace_portable_beaker(user, B)
 		if(cell)
-			icon_state = "portablechemicaldispenser_full"
+			icon_state = "portablechemicalmixer_full"
 		else
-			icon_state = "portablechemicaldispenser_nocell"
+			icon_state = "portablechemicalmixer_open"
 		to_chat(user, "<span class='notice'>You add [B] to the [src].</span>")
 		updateUsrDialog()
 	else if(I.tool_behaviour == TOOL_SCREWDRIVER)
 		//Removing a powercell 
 		if(!beaker)
 			remove_cell(user)
-			icon_state = "portablechemicaldispenser_nocell"
+			icon_state = "portablechemicalmixer_open"
 		else
 			to_chat(user, "<span class='warning'>You cannot change the power cell with the beaker still in.</span>")
 		return
@@ -103,9 +103,9 @@
 			//Adding a powercell
 			cell = I
 			if(beaker)
-				icon_state = "portablechemicaldispenser_full"
+				icon_state = "portablechemicalmixer_full"
 			else
-				icon_state = "portablechemicaldispenser_empty"
+				icon_state = "portablechemicalmixer_empty"
 			return
 	else if(user.a_intent != INTENT_HARM && !istype(I, /obj/item/card/emag))
 		to_chat(user, "<span class='warning'>You can't load [I] into the [src]!</span>")
@@ -114,18 +114,18 @@
 		return ..()
 
 
-/obj/item/portable_chem_dispenser/AltClick(mob/living/user)
+/obj/item/portable_chem_mixer/AltClick(mob/living/user)
 	. = ..()
 	if(!can_interact(user) || !user.canUseTopic(src, BE_CLOSE, FALSE, NO_TK))
 		return
 	replace_portable_beaker(user)
 	if (cell)
-		icon_state = "portablechemicaldispenser_empty"
+		icon_state = "portablechemicalmixer_empty"
 	else
-		icon_state = "portablechemicaldispenser_nocell"
+		icon_state = "portablechemicalmixer_open"
 
 
-/obj/item/portable_chem_dispenser/proc/replace_portable_beaker(mob/living/user, obj/item/reagent_containers/new_beaker)
+/obj/item/portable_chem_mixer/proc/replace_portable_beaker(mob/living/user, obj/item/reagent_containers/new_beaker)
 	if(!user)
 		return FALSE
 	if(beaker)
@@ -137,7 +137,7 @@
 	return TRUE
 
 
-/obj/item/portable_chem_dispenser/proc/remove_cell(mob/living/user)
+/obj/item/portable_chem_mixer/proc/remove_cell(mob/living/user)
 	if(!user)
 		return FALSE
 	if(cell)
@@ -147,16 +147,16 @@
 
 
 //----------------------------------------------------------------------------------------------------------
-//	Accessing the Dispenser and moving it back to the hand
+//	Accessing the Mixer and moving it back to the hand
 //----------------------------------------------------------------------------------------------------------
 
-/obj/item/portable_chem_dispenser/attack_hand(mob/user)
+/obj/item/portable_chem_mixer/attack_hand(mob/user)
 	if(loc != user)
 		return ..()
 	if(!(slot_flags & ITEM_SLOT_BELT))
 		return
 	if(user.get_item_by_slot(ITEM_SLOT_BELT) != src)
-		to_chat(user, "<span class='warning'>You must strap the portable chemical dispenser's belt on to handle it properly!</span>")
+		to_chat(user, "<span class='warning'>You must strap the portable chemical mixer's belt on to handle it properly!</span>")
 		return
 	if(cell)
 		ui_interact(user)
@@ -164,11 +164,11 @@
 		to_chat(user, "<span class='warning'>It has no power cell installed!</span>")
 
 
-/obj/item/portable_chem_dispenser/attack_self(mob/user)
-	to_chat(user, "<span class='warning'>You must strap the portable chemical dispenser's belt on to handle it properly!")
+/obj/item/portable_chem_mixer/attack_self(mob/user)
+	to_chat(user, "<span class='warning'>You must strap the portable chemical mixer's belt on to handle it properly!")
 	
 
-/obj/item/portable_chem_dispenser/MouseDrop(obj/over_object)
+/obj/item/portable_chem_mixer/MouseDrop(obj/over_object)
 	. = ..()
 	if(ismob(loc))
 		var/mob/M = loc
@@ -179,10 +179,10 @@
 
 
 //----------------------------------------------------------------------------------------------------------
-//	Dispenser Basic Functionality
+//	Mixer Basic Functionality
 //----------------------------------------------------------------------------------------------------------
 
-/obj/item/portable_chem_dispenser/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
+/obj/item/portable_chem_mixer/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
 											datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
@@ -193,7 +193,7 @@
 
 
 
-/obj/item/portable_chem_dispenser/ui_data(mob/user)
+/obj/item/portable_chem_mixer/ui_data(mob/user)
 	if (cell)
 		var/data = list()
 		data["amount"] = amount
@@ -242,7 +242,7 @@
 
 
 
-/obj/item/portable_chem_dispenser/ui_act(action, params)
+/obj/item/portable_chem_mixer/ui_act(action, params)
 	if(..())
 		return
 	switch(action)
@@ -283,7 +283,7 @@
 				//work_animation()
 				. = TRUE
 		if("eject")
-			icon_state = "portablechemicaldispenser_empty"
+			icon_state = "portablechemicalmixer_empty"
 			replace_portable_beaker(usr)
 			. = TRUE
 		if("dispense_recipe")
@@ -353,10 +353,10 @@
 
 
 //----------------------------------------------------------------------------------------------------------
-//	Dispenser Additional Functionality
+//	Mixer Additional Functionality
 //----------------------------------------------------------------------------------------------------------
 
-/obj/item/portable_chem_dispenser/Initialize()
+/obj/item/portable_chem_mixer/Initialize()
 	. = ..()
 	dispensable_reagents = sortList(dispensable_reagents, /proc/cmp_reagents_asc)
 	if(emagged_reagents)
@@ -365,13 +365,13 @@
 	update_icon()
 
 
-/obj/item/portable_chem_dispenser/Destroy()
+/obj/item/portable_chem_mixer/Destroy()
 	QDEL_NULL(beaker)
 	QDEL_NULL(cell)
 	return ..()
 
 
-/obj/item/portable_chem_dispenser/emag_act(mob/user)
+/obj/item/portable_chem_mixer/emag_act(mob/user)
 	if(obj_flags & EMAGGED)
 		to_chat(user, "<span class='warning'>The [src] has no functional safeties to emag.</span>")
 		return
@@ -380,12 +380,12 @@
 	obj_flags |= EMAGGED
 
 
-/obj/item/portable_chem_dispenser/ex_act(severity, target)
+/obj/item/portable_chem_mixer/ex_act(severity, target)
 	if(severity < 3)
 		..()
 
 
-/obj/item/portable_chem_dispenser/contents_explosion(severity, target)
+/obj/item/portable_chem_mixer/contents_explosion(severity, target)
 	..()
 	if(beaker)
 		switch(severity)
@@ -398,7 +398,7 @@
 
 
 
-/obj/item/portable_chem_dispenser/emp_act(severity)
+/obj/item/portable_chem_mixer/emp_act(severity)
 	. = ..()
 	if(. & EMP_PROTECT_SELF)
 		return
@@ -416,4 +416,4 @@
 	cell.use(total/powerefficiency)
 	cell.emp_act(severity)
 	//work_animation()
-	visible_message("<span class='danger'>The portable chemical dispenser malfunctions, spraying chemicals everywhere!</span>")
+	visible_message("<span class='danger'>The portable chemical mixer malfunctions, spraying chemicals everywhere!</span>")
