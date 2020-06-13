@@ -23,7 +23,7 @@
 	var/list/pillStyles = null
 
 /obj/item/portable_chem_mixer/Initialize()
-	create_reagents(100)
+	create_reagents(100, REFILLABLE | NO_REACT)
 
 	//Calculate the span tags and ids fo all the available pill icons
 	var/datum/asset/spritesheet/simple/assets = get_asset_datum(/datum/asset/spritesheet/simple/pills)
@@ -82,13 +82,13 @@
 			matter_bin = I
 			//Maximum amount of chemicals that can be carried, depending on matter bin
 			if(istype(I, /obj/item/stock_parts/matter_bin/adv))
-				create_reagents(250)
+				create_reagents(250, REFILLABLE | NO_REACT)
 			else if(istype(I, /obj/item/stock_parts/matter_bin/super))
-				create_reagents(500)
+				create_reagents(500, REFILLABLE | NO_REACT)
 			else if(istype(I, /obj/item/stock_parts/matter_bin/bluespace))
-				create_reagents(1000)
+				create_reagents(1000, REFILLABLE | NO_REACT)
 			else
-				create_reagents(100)
+				create_reagents(100, REFILLABLE | NO_REACT)
 			if(beaker)
 				icon_state = "portablechemicalmixer_full"
 			else
