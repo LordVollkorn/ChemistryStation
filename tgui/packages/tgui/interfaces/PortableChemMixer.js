@@ -9,8 +9,7 @@ import { Window } from '../layouts';
 export const PortableChemMixer = (props, context) => {
   const { act, data } = useBackend(context);
   const recording = !!data.recordingRecipe;
-  // TODO: Tell the person who wrote this comment to do his TODO of changing how this piece of shit is built on server side
-  // It has to be a list, not a fucking OBJECT!
+
   const recipes = Object.keys(data.recipes)
     .map(name => ({
       name,
@@ -29,7 +28,7 @@ export const PortableChemMixer = (props, context) => {
   return (
     <Window resizable>
       <Window.Content scrollable>
-      <Section
+        <Section
           title="Chemical storage capacity"
           buttons={recording && (
             <Box inline mx={1} color="red">
@@ -38,10 +37,10 @@ export const PortableChemMixer = (props, context) => {
             </Box>
           )}>
           <LabeledList>
-              <ProgressBar
-                value={data.total_reagents / data.max_total_reagents}>
-                {toFixed(data.max_total_reagents - data.total_reagents) + 'u left'}
-              </ProgressBar>
+            <ProgressBar
+              value={data.total_reagents / data.max_total_reagents}>
+              {toFixed(data.max_total_reagents - data.total_reagents)+'u left'}
+            </ProgressBar>
           </LabeledList>
         </Section>
         <Section

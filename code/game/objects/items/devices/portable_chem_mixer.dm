@@ -8,7 +8,7 @@
 	equip_sound = 'sound/items/equip/toolbelt_equip.ogg'
 	custom_price = 2000
 	custom_premium_price = 2000
-	var/ui_x = 495
+	var/ui_x = 645
 	var/ui_y = 550
 
 	var/obj/item/stock_parts/matter_bin/matter_bin
@@ -373,7 +373,7 @@
 
 //---------------------------------------------------------
 // Function to add to all chemicals at once (Multi-Cartridge perhaps)
-/obj/item/portable_chem_mixer/proc/add_all_reagents(mob/living/user, amount)
+/obj/item/portable_chem_mixer/proc/add_all_reagents(amount)
 
 	var/emptyspace = max_total_reagents - total_reagents	//How much space do we have?
 	var/adjustedamount = min(amount*26, emptyspace)			//Either the amount fits in the space or we get the amount of space that is left back
