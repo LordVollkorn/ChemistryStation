@@ -8,37 +8,56 @@
 	equip_sound = 'sound/items/equip/toolbelt_equip.ogg'
 	custom_price = 2000
 	custom_premium_price = 2000
-	var/ui_x = 465
+	var/ui_x = 495
 	var/ui_y = 550
 
 	var/obj/item/stock_parts/matter_bin/matter_bin
 	var/obj/item/reagent_containers/beaker = null
-	var/obj/item/storage/pill_bottle/bottle = null
-	var/mode = 1
-	var/condi = FALSE
-	var/chosenPillStyle = 1
-	var/screen = "home"
-	var/analyzeVars[0]
-	var/useramount = 30 // Last used amount
-	var/list/pillStyles = null
+	var/max_total_reagents = 100 //Changed depending on the matter bin
+	var/total_reagents = 0 		//Sum of all reagents that are in the item
+	var/amount = 30
+	
+	var/list/dispensable_reagents = list(
+		/datum/reagent/aluminium,
+		/datum/reagent/bromine,
+		/datum/reagent/carbon,
+		/datum/reagent/chlorine,
+		/datum/reagent/copper,
+		/datum/reagent/consumable/ethanol,
+		/datum/reagent/fluorine,
+		/datum/reagent/hydrogen,
+		/datum/reagent/iodine,
+		/datum/reagent/iron,
+		/datum/reagent/lithium,
+		/datum/reagent/mercury,
+		/datum/reagent/nitrogen,
+		/datum/reagent/oxygen,
+		/datum/reagent/phosphorus,
+		/datum/reagent/potassium,
+		/datum/reagent/uranium/radium,
+		/datum/reagent/silicon,
+		/datum/reagent/silver,
+		/datum/reagent/sodium,
+		/datum/reagent/stable_plasma,
+		/datum/reagent/consumable/sugar,
+		/datum/reagent/sulfur,
+		/datum/reagent/toxin/acid,
+		/datum/reagent/water,
+		/datum/reagent/fuel
+	)
+
+	var/list/recording_recipe
+	var/list/saved_recipes = list()
+
 
 /obj/item/portable_chem_mixer/Initialize()
-	create_reagents(100, REFILLABLE | NO_REACT)
-
-	//Calculate the span tags and ids fo all the available pill icons
-	var/datum/asset/spritesheet/simple/assets = get_asset_datum(/datum/asset/spritesheet/simple/pills)
-	pillStyles = list()
-	for (var/x in 1 to PILL_STYLE_COUNT)
-		var/list/SL = list()
-		SL["id"] = x
-		SL["className"] = assets.icon_class_name("pill[x]")
-		pillStyles += list(SL)
-
+	for (var/path in dispensable_reagents)
+		dispensable_reagents[path] = new path()
+		dispensable_reagents[path].volume = 0
 	. = ..()
 
 /obj/item/portable_chem_mixer/Destroy()
 	QDEL_NULL(beaker)
-	QDEL_NULL(bottle)
 	return ..()
 
 /obj/item/portable_chem_mixer/ex_act(severity, target)
@@ -67,7 +86,12 @@
 		//--------------Removing a matter bin 
 		if(!beaker)
 			remove_matter_bin(user)
+			max_total_reagents = 0
 			icon_state = "portablechemicalmixer_open"
+			for(var/re in dispensable_reagents)
+				var/datum/reagent/R = dispensable_reagents[re]
+				R.volume = 0
+			to_chat(user, "<span class='warning'>The matter bin hisses as leftover reagents evaporate.</span>")
 		else
 			to_chat(user, "<span class='warning'>You cannot change the matter bin with the beaker still in.</span>")
 		return
@@ -82,13 +106,13 @@
 			matter_bin = I
 			//Maximum amount of chemicals that can be carried, depending on matter bin
 			if(istype(I, /obj/item/stock_parts/matter_bin/adv))
-				create_reagents(250, REFILLABLE | NO_REACT)
+				max_total_reagents = 520 //Advanced matter bin
 			else if(istype(I, /obj/item/stock_parts/matter_bin/super))
-				create_reagents(500, REFILLABLE | NO_REACT)
+				max_total_reagents = 1040 //Super matter bin
 			else if(istype(I, /obj/item/stock_parts/matter_bin/bluespace))
-				create_reagents(1000, REFILLABLE | NO_REACT)
+				max_total_reagents = 2080 //Bluespace matter bin
 			else
-				create_reagents(100, REFILLABLE | NO_REACT)
+				max_total_reagents = 260 //Normal matter bin (10u per reagent)
 			if(beaker)
 				icon_state = "portablechemicalmixer_full"
 			else
@@ -120,7 +144,6 @@
 		beaker = null
 	if(new_beaker)
 		beaker = new_beaker
-	//update_icon()
 	return TRUE
 
 
@@ -178,240 +201,146 @@
 		ui = new(user, src, ui_key, "PortableChemMixer", name, ui_x, ui_y, master_ui, state)
 		ui.open()
 
-//Insert our custom spritesheet css link into the html
-/obj/item/portable_chem_mixer/ui_base_html(html)
-	var/datum/asset/spritesheet/simple/assets = get_asset_datum(/datum/asset/spritesheet/simple/pills)
-	. = replacetext(html, "<!--customheadhtml-->", assets.css_tag())
 
 /obj/item/portable_chem_mixer/ui_data(mob/user)
 	var/list/data = list()
+	data["amount"] = amount
 	data["isBeakerLoaded"] = beaker ? 1 : 0
 	data["beakerCurrentVolume"] = beaker ? beaker.reagents.total_volume : null
 	data["beakerMaxVolume"] = beaker ? beaker.volume : null
-	data["mode"] = mode
-	data["condi"] = condi
-	data["screen"] = screen
-	data["analyzeVars"] = analyzeVars
-	data["chosenPillStyle"] = chosenPillStyle
-	data["isPillBottleLoaded"] = bottle ? 1 : 0
-	if(bottle)
-		var/datum/component/storage/STRB = bottle.GetComponent(/datum/component/storage)
-		data["pillBottleCurrentAmount"] = bottle.contents.len
-		data["pillBottleMaxAmount"] = STRB.max_items
-
+	data["beakerTransferAmounts"] = beaker ? list(1,2,3,4,5) : null
+	data["max_total_reagents"] = max_total_reagents
+	data["total_reagents"] = total_reagents
+	var/chemicals[0]
+	var/is_hallucinating = FALSE
+	if(user.hallucinating())
+		is_hallucinating = TRUE
+	for(var/re in dispensable_reagents)
+		var/datum/reagent/R = dispensable_reagents[re]
+		var/datum/reagent/temp = GLOB.chemical_reagents_list[re]
+		if(temp)
+			var/chemname = temp.name
+			if(is_hallucinating && prob(5))
+				chemname = "[pick_list_replacements("hallucination.json", "chemicals")]"
+			chemicals.Add(list(list("title" = chemname, "id" = ckey(temp.name), "volume" = R.volume )))
+	data["chemicals"] = chemicals
+	data["recipes"] = saved_recipes
+	data["recordingRecipe"] = recording_recipe
 	var/beakerContents[0]
 	if(beaker)
 		for(var/datum/reagent/R in beaker.reagents.reagent_list)
 			beakerContents.Add(list(list("name" = R.name, "id" = ckey(R.name), "volume" = R.volume))) // list in a list because Byond merges the first list...
 	data["beakerContents"] = beakerContents
-
-	var/bufferContents[0]
-	if(reagents.total_volume)
-		for(var/datum/reagent/N in reagents.reagent_list)
-			bufferContents.Add(list(list("name" = N.name, "id" = ckey(N.name), "volume" = N.volume))) // ^
-	data["bufferContents"] = bufferContents
-
-	//Calculated at init time as it never changes
-	data["pillStyles"] = pillStyles
 	return data
+
+
 
 /obj/item/portable_chem_mixer/ui_act(action, params)
 	if(..())
 		return
+	switch(action)
+		if("amount")
+			if(QDELETED(matter_bin))
+				return
+			var/target = text2num(params["target"])
+			//if(target in beaker.possible_transfer_amounts)
+			amount = target
+			. = TRUE
+		if("dispense")
+			if(QDELETED(matter_bin))
+				return
+			var/reagent_name = params["reagent"]
+			if(!recording_recipe)
+				var/reagent = GLOB.name2reagent[reagent_name]
+				if(beaker && dispensable_reagents.Find(reagent))
+					
+					//What the beaker could hold
+					var/datum/reagents/R = beaker.reagents
+					var/free = R.maximum_volume - R.total_volume
+					var/actual = min(amount, 1000, free)
 
-	if(action == "eject")
-		icon_state = "portablechemicalmixer_empty"
-		replace_beaker(usr)
-		return TRUE
+					//The maximum we have available to dispense
+					var/datum/reagent/DR = dispensable_reagents[reagent]
+					var/max_dispensable = min(amount,DR.volume)
 
-	if(action == "ejectPillBottle")
-		if(!bottle)
-			return FALSE
-		bottle.forceMove(drop_location())
-		//adjust_item_drop_location(bottle)
-		bottle = null
-		return TRUE
+					//Dispense the best possible amount
+					var/to_dispense = min(max_dispensable, actual)
+					DR.volume -= to_dispense
 
-	if(action == "transfer")
-		if(!beaker)
-			return FALSE
-		var/reagent = GLOB.name2reagent[params["id"]]
-		var/amount = text2num(params["amount"])
-		var/to_container = params["to"]
-		// Custom amount
-		if (amount == -1)
-			amount = text2num(input(
-				"Enter the amount you want to transfer:",
-				name, ""))
-		if (amount == null || amount <= 0)
-			return FALSE
-		if (to_container == "buffer")
-			beaker.reagents.trans_id_to(src, reagent, amount)
-			return TRUE
-		if (to_container == "beaker" && mode)
-			reagents.trans_id_to(beaker, reagent, amount)
-			return TRUE
-		if (to_container == "beaker" && !mode)
-			reagents.remove_reagent(reagent, amount)
-			return TRUE
-		return FALSE
-
-	if(action == "toggleMode")
-		mode = !mode
-		return TRUE
-
-	if(action == "pillStyle")
-		var/id = text2num(params["id"])
-		chosenPillStyle = id
-		return TRUE
-
-	if(action == "create")
-		if(reagents.total_volume == 0)
-			return FALSE
-		var/item_type = params["type"]
-		// Get amount of items
-		var/amount = text2num(params["amount"])
-		if(amount == null)
-			amount = text2num(input(usr,
-				"Max 10. Buffer content will be split evenly.",
-				"How many to make?", 1))
-		amount = clamp(round(amount), 0, 10)
-		if (amount <= 0)
-			return FALSE
-		// Get units per item
-		var/vol_each = text2num(params["volume"])
-		var/vol_each_text = params["volume"]
-		var/vol_each_max = reagents.total_volume / amount
-		if (item_type == "pill")
-			vol_each_max = min(50, vol_each_max)
-		else if (item_type == "patch")
-			vol_each_max = min(40, vol_each_max)
-		else if (item_type == "bottle")
-			vol_each_max = min(30, vol_each_max)
-		else if (item_type == "condimentPack")
-			vol_each_max = min(10, vol_each_max)
-		else if (item_type == "condimentBottle")
-			vol_each_max = min(50, vol_each_max)
-		else
-			return FALSE
-		if(vol_each_text == "auto")
-			vol_each = vol_each_max
-		if(vol_each == null)
-			vol_each = text2num(input(usr,
-				"Maximum [vol_each_max] units per item.",
-				"How many units to fill?",
-				vol_each_max))
-		vol_each = clamp(vol_each, 0, vol_each_max)
-		if(vol_each <= 0)
-			return FALSE
-		// Get item name
-		var/name = params["name"]
-		var/name_has_units = item_type == "pill" || item_type == "patch"
-		if(!name)
-			var/name_default = reagents.get_master_reagent_name()
-			if (name_has_units)
-				name_default += " ([vol_each]u)"
-			name = stripped_input(usr,
-				"Name:",
-				"Give it a name!",
-				name_default,
-				MAX_NAME_LEN)
-		if(!name || !reagents.total_volume || !src || QDELETED(src) || !usr.canUseTopic(src, !issilicon(usr)))
-			return FALSE
-		// Start filling
-		if(item_type == "pill")
-			var/obj/item/reagent_containers/pill/P
-			var/target_loc = drop_location()
-			var/drop_threshold = INFINITY
-			if(bottle)
-				var/datum/component/storage/STRB = bottle.GetComponent(
-					/datum/component/storage)
-				if(STRB)
-					drop_threshold = STRB.max_items - bottle.contents.len
-			for(var/i = 0; i < amount; i++)
-				if(i < drop_threshold)
-					P = new/obj/item/reagent_containers/pill(target_loc)
+					//Add to beaker
+					R.add_reagent(reagent, to_dispense)
+			else
+				recording_recipe[reagent_name] += amount
+			. = TRUE
+		if("remove")
+			if(recording_recipe)
+				return
+			var/amount = text2num(params["amount"])
+			if(beaker && (amount in beaker.possible_transfer_amounts))
+				beaker.reagents.remove_all(amount)
+				. = TRUE
+		if("eject")
+			icon_state = "portablechemicalmixer_empty"
+			replace_beaker(usr)
+			. = TRUE
+		if("dispense_recipe")
+			if(QDELETED(matter_bin))
+				return
+			var/list/chemicals_to_dispense = saved_recipes[params["recipe"]]
+			if(!LAZYLEN(chemicals_to_dispense))
+				return
+			for(var/key in chemicals_to_dispense)
+				var/reagent = GLOB.name2reagent[translate_legacy_chem_id(key)]
+				var/dispense_amount = chemicals_to_dispense[key]
+				if(!dispensable_reagents.Find(reagent))
+					return
+				if(!recording_recipe)
+					if(!beaker)
+						return
+					var/datum/reagents/R = beaker.reagents
+					var/free = R.maximum_volume - R.total_volume
+					var/actual = min(dispense_amount, 1000, free)
+					if(actual)
+						R.add_reagent(reagent, actual)
 				else
-					P = new/obj/item/reagent_containers/pill(drop_location())
-				P.name = trim("[name] pill")
-				if(chosenPillStyle == RANDOM_PILL_STYLE)
-					P.icon_state ="pill[rand(1,21)]"
-				else
-					P.icon_state = "pill[chosenPillStyle]"
-				if(P.icon_state == "pill4")
-					P.desc = "A tablet or capsule, but not just any, a red one, one taken by the ones not scared of knowledge, freedom, uncertainty and the brutal truths of reality."
-				//adjust_item_drop_location(P)
-				reagents.trans_to(P, vol_each, transfered_by = usr)
-			return TRUE
-		if(item_type == "patch")
-			var/obj/item/reagent_containers/pill/patch/P
-			for(var/i = 0; i < amount; i++)
-				P = new/obj/item/reagent_containers/pill/patch(drop_location())
-				P.name = trim("[name] patch")
-				//adjust_item_drop_location(P)
-				reagents.trans_to(P, vol_each, transfered_by = usr)
-			return TRUE
-		if(item_type == "bottle")
-			var/obj/item/reagent_containers/glass/bottle/P
-			for(var/i = 0; i < amount; i++)
-				P = new/obj/item/reagent_containers/glass/bottle(drop_location())
-				P.name = trim("[name] bottle")
-				//adjust_item_drop_location(P)
-				reagents.trans_to(P, vol_each, transfered_by = usr)
-			return TRUE
-		if(item_type == "condimentPack")
-			var/obj/item/reagent_containers/food/condiment/pack/P
-			for(var/i = 0; i < amount; i++)
-				P = new/obj/item/reagent_containers/food/condiment/pack(drop_location())
-				P.originalname = name
-				P.name = trim("[name] pack")
-				P.desc = "A small condiment pack. The label says it contains [name]."
-				reagents.trans_to(P, vol_each, transfered_by = usr)
-			return TRUE
-		if(item_type == "condimentBottle")
-			var/obj/item/reagent_containers/food/condiment/P
-			for(var/i = 0; i < amount; i++)
-				P = new/obj/item/reagent_containers/food/condiment(drop_location())
-				P.originalname = name
-				P.name = trim("[name] bottle")
-				reagents.trans_to(P, vol_each, transfered_by = usr)
-			return TRUE
-		return FALSE
-
-	if(action == "analyze")
-		var/datum/reagent/R = GLOB.name2reagent[params["id"]]
-		if(R)
-			var/state = "Unknown"
-			if(initial(R.reagent_state) == 1)
-				state = "Solid"
-			else if(initial(R.reagent_state) == 2)
-				state = "Liquid"
-			else if(initial(R.reagent_state) == 3)
-				state = "Gas"
-			var/const/P = 3 //The number of seconds between life ticks
-			var/T = initial(R.metabolization_rate) * (60 / P)
-			analyzeVars = list("name" = initial(R.name), "state" = state, "color" = initial(R.color), "description" = initial(R.description), "metaRate" = T, "overD" = initial(R.overdose_threshold), "addicD" = initial(R.addiction_threshold))
-			screen = "analyze"
-			return TRUE
-
-	if(action == "goScreen")
-		screen = params["screen"]
-		return TRUE
-
-	return FALSE
-
-
-/obj/item/portable_chem_mixer/proc/isgoodnumber(num)
-	if(isnum(num))
-		if(num > 200)
-			num = 200
-		else if(num < 0)
-			num = 0
-		else
-			num = round(num)
-		return num
-	else
-		return 0
+					recording_recipe[key] += dispense_amount
+			. = TRUE
+		if("clear_recipes")
+			// if(!is_operational())
+			// 	return
+			var/yesno = alert("Clear all recipes?",, "Yes","No")
+			if(yesno == "Yes")
+				saved_recipes = list()
+			. = TRUE
+		if("record_recipe")
+			// if(!is_operational())
+			// 	return
+			recording_recipe = list()
+			. = TRUE
+		if("save_recording")
+		// 	if(!is_operational())
+				// return
+			var/name = stripped_input(usr,"Name","What do you want to name this recipe?", "Recipe", MAX_NAME_LEN)
+			if(!usr.canUseTopic(src, !issilicon(usr)))
+				return
+			if(saved_recipes[name] && alert("\"[name]\" already exists, do you want to overwrite it?",, "Yes", "No") == "No")
+				return
+			if(name && recording_recipe)
+				for(var/reagent in recording_recipe)
+					var/reagent_id = GLOB.name2reagent[translate_legacy_chem_id(reagent)]
+					if(!dispensable_reagents.Find(reagent_id))
+						visible_message("<span class='warning'>[src] buzzes.</span>", "<span class='hear'>You hear a faint buzz.</span>")
+						to_chat(usr, "<span class ='danger'>[src] cannot find <b>[reagent]</b>!</span>")
+						playsound(src, 'sound/machines/buzz-two.ogg', 50, TRUE)
+						return
+				saved_recipes[name] = recording_recipe
+				recording_recipe = null
+				. = TRUE
+		if("cancel_recording")
+			// if(!is_operational())
+			// 	return
+			recording_recipe = null
+			. = TRUE
 
 
 
@@ -429,65 +358,26 @@
 				SSexplosions.medobj += beaker
 			if(EXPLODE_LIGHT)
 				SSexplosions.lowobj += beaker
-	if(bottle)
-		switch(severity)
-			if(EXPLODE_DEVASTATE)
-				SSexplosions.highobj += bottle
-			if(EXPLODE_HEAVY)
-				SSexplosions.medobj += bottle
-			if(EXPLODE_LIGHT)
-				SSexplosions.lowobj += bottle
 
 /obj/item/portable_chem_mixer/handle_atom_del(atom/A)
 	..()
 	if(A == beaker)
 		beaker = null
 		reagents.clear_reagents()
-		//update_icon()
-	else if(A == bottle)
-		bottle = null
-
-// /obj/item/portable_chem_mixer/update_overlays()
-// 	. = ..()
-// 	if(machine_stat & BROKEN)
-// 		. += "waitlight"
-
-/obj/item/portable_chem_mixer/blob_act(obj/structure/blob/B)
-	if (prob(50))
-		qdel(src)
 
 
 
 
+//---------------------------------------------------------
+// Function to add to all chemicals at once (Multi-Cartridge perhaps)
+/obj/item/portable_chem_mixer/proc/add_all_reagents(mob/living/user, amount)
 
+	var/emptyspace = max_total_reagents - total_reagents	//How much space do we have?
+	var/adjustedamount = min(amount*26, emptyspace)			//Either the amount fits in the space or we get the amount of space that is left back
+	adjustedamount = adjustedamount/26						//What we get back, we divide by 26(number of reagents possible)
+	
+	for(var/re in dispensable_reagents)						//We add this amount to each chemical we have
+		var/datum/reagent/R = dispensable_reagents[re]
+		R.volume += adjustedamount
 
-
-// /obj/item/portable_chem_mixer/on_deconstruction()
-// 	replace_beaker()
-// 	if(bottle)
-// 		bottle.forceMove(drop_location())
-// 		//adjust_item_drop_location(bottle)
-// 		bottle = null
-// 	return ..()
-
-
-// /obj/item/portable_chem_mixer/adjust_item_drop_location(atom/movable/AM) // Special version for chemmasters and condimasters
-// 	if (AM == beaker)
-// 		AM.pixel_x = -8
-// 		AM.pixel_y = 8
-// 		return null
-// 	else if (AM == bottle)
-// 		if (length(bottle.contents))
-// 			AM.pixel_x = -13
-// 		else
-// 			AM.pixel_x = -7
-// 		AM.pixel_y = -8
-// 		return null
-// 	else
-// 		var/md5 = md5(AM.name)
-// 		for (var/i in 1 to 32)
-// 			. += hex2num(md5[i])
-// 		. = . % 9
-// 		AM.pixel_x = ((.%3)*6)
-// 		AM.pixel_y = -8 + (round( . / 3)*8)
-
+	total_reagents += adjustedamount*26						//Update the total amount of chemicals currently in the item
