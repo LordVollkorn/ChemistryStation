@@ -269,6 +269,9 @@
 
 					//Add to beaker
 					R.add_reagent(reagent, to_dispense)
+					
+					//Remove from total_reagent amount
+					total_reagents -= to_dispense
 			else
 				recording_recipe[reagent_name] += amount
 			. = TRUE
