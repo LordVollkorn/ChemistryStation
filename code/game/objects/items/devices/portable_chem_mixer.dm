@@ -295,7 +295,10 @@
 			for(var/key in chemicals_to_dispense)
 				var/reagent = GLOB.name2reagent[translate_legacy_chem_id(key)]
 				var/dispense_amount = chemicals_to_dispense[key]
+				var/datum/reagent/DR = dispensable_reagents[reagent]
 				if(!dispensable_reagents.Find(reagent))
+					return
+				if(DR.volume < dispense_amount)
 					return
 				if(!recording_recipe)
 					if(!beaker)
@@ -305,6 +308,8 @@
 					var/actual = min(dispense_amount, 1000, free)
 					if(actual)
 						R.add_reagent(reagent, actual)
+						DR.volume -= actual
+						total_reagents -= actual
 				else
 					recording_recipe[key] += dispense_amount
 			. = TRUE
