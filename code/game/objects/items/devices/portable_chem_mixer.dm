@@ -85,7 +85,7 @@
 		updateUsrDialog()
 	else if(I.tool_behaviour == TOOL_SCREWDRIVER)
 		//--------------Removing a matter bin 
-		if(!beaker)
+		if(!beaker && matter_bin)
 			remove_matter_bin(user)
 			total_reagents = 0
 			max_total_reagents = 0
@@ -95,6 +95,8 @@
 				R.volume = 0
 			to_chat(user, "<span class='notice'>The matter bin hisses as leftover reagents evaporate.</span>")
 			playsound(user.loc,'sound/effects/refill.ogg', 30, TRUE)
+		else if(!beaker && !matter_bin)
+			to_chat(user, "<span class='warning'>The portable chemical mixer is already open.</span>")
 		else
 			to_chat(user, "<span class='warning'>You cannot change the matter bin with the beaker still in.</span>")
 		return
