@@ -281,6 +281,26 @@
 	build_path = /obj/item/reagent_containers/blood
 	category = list("Medical Designs")
 
+/datum/design/portable_chem_mixer
+	name = "Portable Chemical Mixer"
+	desc = "A portable device that dispenses and mixes chemicals. Reagents have to be supplied with cartridges."
+	id = "portable_chem_mixer"
+	build_type = PROTOLATHE
+	departmental_flags = DEPARTMENTAL_FLAG_MEDICAL
+	materials = list(/datum/material/plastic = 5000, /datum/material/iron = 10000, /datum/material/glass = 3000)
+	build_path = /obj/item/portable_chem_mixer
+	category = list("Equipment")
+
+/datum/design/portable_chem_mixer_cartridge
+	name = "Chemical Cartridge"
+	desc = "A single-use cartridge for use in the portable chemical dispenser."
+	id = "portable_chem_mixer_cartridge"
+	build_type = PROTOLATHE
+	departmental_flags = DEPARTMENTAL_FLAG_MEDICAL
+	materials = list(/datum/material/plastic = 2000, /datum/material/iron = 3000)
+	build_path = /obj/item/reagent_containers/portable_chem_mixer_cartridge
+	category = list("Equipment")
+
 /////////////////////////////////////////
 //////////Cybernetic Implants////////////
 /////////////////////////////////////////

@@ -1,6 +1,6 @@
 /obj/item/portable_chem_mixer
 	name = "Portable Chemical Mixer" //Thanks to antropod for the help
-	desc = "A chemical Mixer. We are still working on it and it won't create chemicals from thin air."
+	desc = "A portable device that dispenses and mixes chemicals. All necessary reagents need to be supplied with chemical cartridges. A label indicates that a screwdriver is required to open it. The letters 'S&T' are imprinted on the side."
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "portablechemicalmixer_open"
 	w_class = WEIGHT_CLASS_HUGE
@@ -15,8 +15,9 @@
 	var/obj/item/reagent_containers/beaker = null
 	var/max_total_reagents = 100 //Changed depending on the matter bin
 	var/total_reagents = 0 		//Sum of all reagents that are in the item
-	var/amount = 30
+	var/amount = 5
 	
+	var/dispensable_reagents_number = 26
 	var/list/dispensable_reagents = list(
 		/datum/reagent/aluminium,
 		/datum/reagent/bromine,
@@ -70,7 +71,7 @@
 //----------------------------------------------------------------------------------------------------------
 
 /obj/item/portable_chem_mixer/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/reagent_containers) && !(I.item_flags & ABSTRACT) && I.is_open_container())
+	if(istype(I, /obj/item/reagent_containers) && !(I.item_flags & ABSTRACT) && I.is_open_container() && !(istype(I, /obj/item/reagent_containers/portable_chem_mixer_cartridge)))
 		var/obj/item/reagent_containers/B = I
 		. = TRUE //no afterattack
 		if(!user.transferItemToLoc(B, src))
@@ -86,15 +87,18 @@
 		//--------------Removing a matter bin 
 		if(!beaker)
 			remove_matter_bin(user)
+			total_reagents = 0
 			max_total_reagents = 0
 			icon_state = "portablechemicalmixer_open"
 			for(var/re in dispensable_reagents)
 				var/datum/reagent/R = dispensable_reagents[re]
 				R.volume = 0
-			to_chat(user, "<span class='warning'>The matter bin hisses as leftover reagents evaporate.</span>")
+			to_chat(user, "<span class='notice'>The matter bin hisses as leftover reagents evaporate.</span>")
+			playsound(user.loc,'sound/effects/refill.ogg', 30, TRUE)
 		else
 			to_chat(user, "<span class='warning'>You cannot change the matter bin with the beaker still in.</span>")
 		return
+			//--------------Adding a matter bin
 	else if(istype(I, /obj/item/stock_parts/matter_bin))
 		if(matter_bin)
 			to_chat(user, "<span class='warning'>There is already a matter bin inside!</span>")
@@ -102,7 +106,6 @@
 		else
 			if(!user.transferItemToLoc(I, src))
 				return
-			//--------------Adding a matter bin
 			matter_bin = I
 			//Maximum amount of chemicals that can be carried, depending on matter bin
 			if(istype(I, /obj/item/stock_parts/matter_bin/adv))
@@ -117,7 +120,60 @@
 				icon_state = "portablechemicalmixer_full"
 			else
 				icon_state = "portablechemicalmixer_empty"
+			playsound(user.loc,'sound/machines/click.ogg', 30, TRUE)
 			return
+	
+			//--------------Adding a cartridge
+	else if(istype(I, /obj/item/portable_chem_mixer_multicartridge01))
+		if(!matter_bin)
+			to_chat(user, "<span class='warning'>There is no matter bin inside!</span>")
+			return
+		else
+			add_all_reagents(user, 10, I)
+			return
+	else if(istype(I, /obj/item/portable_chem_mixer_multicartridge02))
+		if(!matter_bin)
+			to_chat(user, "<span class='warning'>There is no matter bin inside!</span>")
+			return
+		else
+			add_all_reagents(user, 20, I)
+			return
+	else if(istype(I, /obj/item/portable_chem_mixer_multicartridge03))
+		if(!matter_bin)
+			to_chat(user, "<span class='warning'>There is no matter bin inside!</span>")
+			return
+		else
+			add_all_reagents(user, 30, I)
+			return
+	else if(istype(I, /obj/item/reagent_containers/portable_chem_mixer_cartridge))
+		if(!matter_bin)
+			to_chat(user, "<span class='warning'>There is no matter bin inside!</span>")
+			return
+		else
+			//--------------Adding a custom cartridge
+			var/emptyspace = max_total_reagents - total_reagents	//How much space do we have?
+			var/amount = I.reagents.total_volume					//Either the amount fits in the space or we get the amount of space that is left
+
+			if(amount > 0)
+				if(amount <= emptyspace)
+					for(var/datum/reagent/R in I.reagents.reagent_list)
+						var/datum/reagent/D = dispensable_reagents[R.type]
+						//Add reagent to the buffer
+						D.volume += R.volume
+						total_reagents += R.volume
+						//Remove reagent from cartridge
+						R.volume = 0
+					playsound(user.loc,'sound/items/handling/component_pickup.ogg', 30, TRUE)
+					QDEL_NULL(I)
+				else
+					to_chat(user, "<span class='warning'>There is not enough storage space in the device. Please dispose of [amount - emptyspace] units.</span>")
+			else
+				to_chat(user, "<span class='warning'>The chemical cartridge is empty.</span>")
+		return	
+
+
+			
+	
 	else if(user.a_intent != INTENT_HARM && !istype(I, /obj/item/card/emag))
 		to_chat(user, "<span class='warning'>You can't load [I] into the [src]!</span>")
 		return ..()
@@ -375,17 +431,66 @@
 
 
 
+//----------------------------------------------------------------------------------------------------------
+//	Cartridges
+//----------------------------------------------------------------------------------------------------------
 
-//---------------------------------------------------------
-// Function to add to all chemicals at once (Multi-Cartridge perhaps)
-/obj/item/portable_chem_mixer/proc/add_all_reagents(amount)
 
-	var/emptyspace = max_total_reagents - total_reagents	//How much space do we have?
-	var/adjustedamount = min(amount*26, emptyspace)			//Either the amount fits in the space or we get the amount of space that is left back
-	adjustedamount = adjustedamount/26						//What we get back, we divide by 26(number of reagents possible)
-	
-	for(var/re in dispensable_reagents)						//We add this amount to each chemical we have
-		var/datum/reagent/R = dispensable_reagents[re]
-		R.volume += adjustedamount
+// Function to add to all chemicals at once (Multi-Cartridge)
+/obj/item/portable_chem_mixer/proc/add_all_reagents(mob/user, amount, cartridge)
 
-	total_reagents += adjustedamount*26						//Update the total amount of chemicals currently in the item
+	var/emptyspace = max_total_reagents - total_reagents							//How much space do we have?
+	if(emptyspace >= dispensable_reagents_number)
+		var/adjustedamount = min(amount*dispensable_reagents_number, emptyspace)		//Either the amount fits in the space or we get the amount of space that is left back
+		adjustedamount = round(adjustedamount/dispensable_reagents_number)				//What we get back, we divide by 26(number of reagents possible)
+		
+		for(var/re in dispensable_reagents)												//We add this amount to each chemical we have
+			var/datum/reagent/R = dispensable_reagents[re]
+			R.volume += adjustedamount
+
+		total_reagents += adjustedamount*dispensable_reagents_number					//Update the total amount of chemicals currently in the portable chemical mixer
+		playsound(user.loc,'sound/items/handling/component_pickup.ogg', 30, TRUE)
+		QDEL_NULL(cartridge)															//Delete the cartridge
+	else
+		to_chat(user, "<span class='warning'>There is not enough storage space in the device. Please dispose of at least [dispensable_reagents_number - emptyspace] units.</span>")
+
+
+/obj/item/portable_chem_mixer_multicartridge01
+	name = "Small Chemical Multi-Cartridge"
+	desc = "A single-use cartridge of multiple base reagents that can be inserted into the portable chemical mixer. The label states: Max. 10u per reagent."
+	icon = 'icons/obj/chemical.dmi'
+	icon_state = "portablechemicalmixer_cartridge01"
+	w_class = WEIGHT_CLASS_NORMAL
+	custom_price = 300
+	custom_premium_price = 300
+
+/obj/item/portable_chem_mixer_multicartridge02
+	name = "Medium Chemical Multi-Cartridge"
+	desc = "A single-use cartridge of multiple base reagents that can be inserted into the portable chemical mixer. The label states: Max. 20u per reagent."
+	icon = 'icons/obj/chemical.dmi'
+	icon_state = "portablechemicalmixer_cartridge02"
+	w_class = WEIGHT_CLASS_NORMAL
+	custom_price = 500
+	custom_premium_price = 500
+
+/obj/item/portable_chem_mixer_multicartridge03
+	name = "Large Chemical Multi-Cartridge"
+	desc = "A single-use cartridge of multiple base reagents that can be inserted into the portable chemical mixer. The label states: Max. 30u per reagent."
+	icon = 'icons/obj/chemical.dmi'
+	icon_state = "portablechemicalmixer_cartridge03"
+	w_class = WEIGHT_CLASS_NORMAL
+	custom_price = 1000
+	custom_premium_price = 1000
+
+
+/obj/item/reagent_containers/portable_chem_mixer_cartridge
+	name = "Chemical Cartridge"
+	desc = "A single-use cartridge containing various chemical reagents. Can be refilled by hand or with a dispenser. Can be inserted into the portable chemical mixer to transfer its reagents."
+	icon = 'icons/obj/chemical.dmi'
+	icon_state = "portablechemicalmixer_cartridge04"
+	w_class = WEIGHT_CLASS_NORMAL
+	reagent_flags = NO_REACT | AMOUNT_VISIBLE | OPENCONTAINER
+	possible_transfer_amounts = list(10)
+	volume = 100
+	custom_price = 100
+	custom_premium_price = 100
