@@ -158,18 +158,29 @@
 
 			if(amount > 0)
 				if(amount <= emptyspace)
-					for(var/datum/reagent/R in I.reagents.reagent_list)
-						var/datum/reagent/D = dispensable_reagents[R.type]
-						//Add reagent to the buffer
-						D.volume += R.volume
-						total_reagents += R.volume
-						//Remove reagent from cartridge
-						R.volume = 0
-					playsound(user.loc,'sound/items/handling/component_pickup.ogg', 30, TRUE)
-					QDEL_NULL(I)
+					if(I.reagents.reagent_list.len == 1)	//Only one reagent per cartridge is allowed
+						for(var/datum/reagent/R in I.reagents.reagent_list)
+							if(dispensable_reagents[R.type])
+								var/datum/reagent/D = dispensable_reagents[R.type]
+								//Add reagent to the buffer
+								D.volume += R.volume
+								total_reagents += R.volume
+								//Remove reagent from cartridge
+								R.volume = 0
+								I.reagents.clear_reagents()
+								to_chat(user, "<span class='notice'>You transfer the reagent to the portable chemical mixer.</span>")
+								playsound(user.loc,'sound/items/handling/component_pickup.ogg', 30, TRUE)
+							else
+								//Something was inserted that is not in the list of allowed reagents
+								to_chat(user, "<span class='warning'>The portable chemical mixer does not recognize this type of reagent.</span>")
+					else 
+						//Too many reagents in the cartridge
+						to_chat(user, "<span class='warning'>The Portable Chemical Mixer has detected an unpure reagent sample in the cartridge. Please insert a pure sample of a single reagent.</span>")	
 				else
+					//Not enough space in the matter bin
 					to_chat(user, "<span class='warning'>There is not enough storage space in the device. Please dispose of [amount - emptyspace] units.</span>")
 			else
+				//Nothing inside the cartridge
 				to_chat(user, "<span class='warning'>The chemical cartridge is empty.</span>")
 		return	
 
@@ -456,6 +467,19 @@
 	else
 		to_chat(user, "<span class='warning'>There is not enough storage space in the device. Please dispose of at least [dispensable_reagents_number - emptyspace] units.</span>")
 
+//Function to empty a custom cartridge
+/obj/item/reagent_containers/portable_chem_mixer_cartridge/verb/empty()
+	set name = "Empty Chemical Cartridge"
+	set category = "Object"
+	set src in usr
+	if(usr.incapacitated())
+		return
+	if (alert(usr, "Are you sure you want to empty that?", "Chemical Cartridge:", "Yes", "No") != "Yes")
+		return
+	if(isturf(usr.loc) && src.loc == usr)
+		to_chat(usr, "<span class='notice'>You empty \the [src] onto the floor.</span>")
+		reagents.reaction(usr.loc)
+		src.reagents.clear_reagents()
 
 /obj/item/portable_chem_mixer_multicartridge01
 	name = "Small Chemical Multi-Cartridge"
@@ -463,8 +487,8 @@
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "portablechemicalmixer_cartridge01"
 	w_class = WEIGHT_CLASS_NORMAL
-	custom_price = 300
-	custom_premium_price = 300
+	custom_price = 500
+	custom_premium_price = 500
 
 /obj/item/portable_chem_mixer_multicartridge02
 	name = "Medium Chemical Multi-Cartridge"
@@ -472,8 +496,8 @@
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "portablechemicalmixer_cartridge02"
 	w_class = WEIGHT_CLASS_NORMAL
-	custom_price = 500
-	custom_premium_price = 500
+	custom_price = 1000
+	custom_premium_price = 1000
 
 /obj/item/portable_chem_mixer_multicartridge03
 	name = "Large Chemical Multi-Cartridge"
@@ -481,18 +505,17 @@
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "portablechemicalmixer_cartridge03"
 	w_class = WEIGHT_CLASS_NORMAL
-	custom_price = 1000
-	custom_premium_price = 1000
-
+	custom_price = 1500
+	custom_premium_price = 1500
 
 /obj/item/reagent_containers/portable_chem_mixer_cartridge
 	name = "Chemical Cartridge"
-	desc = "A single-use cartridge containing various chemical reagents. Can be refilled by hand or with a dispenser. Can be inserted into the portable chemical mixer to transfer its reagents."
+	desc = "A reusable cartridge for storing single, pure chemical reagents. Can be refilled by hand or with a dispenser. Can be inserted into the portable chemical mixer to transfer its reagents."
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "portablechemicalmixer_cartridge04"
 	w_class = WEIGHT_CLASS_NORMAL
-	reagent_flags = NO_REACT | AMOUNT_VISIBLE | OPENCONTAINER
+	reagent_flags = AMOUNT_VISIBLE | OPENCONTAINER
 	possible_transfer_amounts = list(10)
-	volume = 100
-	custom_price = 100
-	custom_premium_price = 100
+	volume = 300
+	custom_price = 300
+	custom_premium_price = 300

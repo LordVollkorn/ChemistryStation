@@ -293,11 +293,11 @@
 
 /datum/design/portable_chem_mixer_cartridge
 	name = "Chemical Cartridge"
-	desc = "A single-use cartridge for use in the portable chemical dispenser."
+	desc = "A reusable cartridge for inserting single, pure chemical reagents in the portable chemical mixer."
 	id = "portable_chem_mixer_cartridge"
 	build_type = PROTOLATHE
 	departmental_flags = DEPARTMENTAL_FLAG_MEDICAL
-	materials = list(/datum/material/plastic = 2000, /datum/material/iron = 3000)
+	materials = list(/datum/material/plastic = 4000, /datum/material/iron = 3000)
 	build_path = /obj/item/reagent_containers/portable_chem_mixer_cartridge
 	category = list("Equipment")
 
