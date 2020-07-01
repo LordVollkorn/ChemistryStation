@@ -1182,16 +1182,6 @@
 					/obj/item/storage/box/beakers)
 	crate_name = "chemical crate"
 
-/datum/supply_pack/medical/portable_chem_mixer_cartridges
-	name = "Reagent Multi-Cartridge Crate"
-	desc = "Contains three multi-cartridges for the portable chemical mixer."
-	cost = 2000
-	access = ACCESS_MEDICAL
-	contains = list(/obj/item/portable_chem_mixer_multicartridge01,
-					/obj/item/portable_chem_mixer_multicartridge02,
-					/obj/item/portable_chem_mixer_multicartridge03)
-	crate_name = "reagent cartridge crate"
-
 /datum/supply_pack/medical/defibs
 	name = "Defibrillator Crate"
 	desc = "Contains two defibrillators for bringing the recently deceased back to life."
@@ -1206,6 +1196,16 @@
 	cost = 1000
 	contains = list(/obj/machinery/iv_drip)
 	crate_name = "iv drip crate"
+
+/datum/supply_pack/medical/portable_chem_mixer_cartridges
+	name = "Reagent Multi-Cartridge Crate"
+	desc = "Contains three multi-cartridges for the portable chemical mixer."
+	cost = 2000
+	access = ACCESS_MEDICAL
+	contains = list(/obj/item/portable_chem_mixer_multicartridge01,
+					/obj/item/portable_chem_mixer_multicartridge02,
+					/obj/item/portable_chem_mixer_multicartridge03)
+	crate_name = "reagent cartridge crate"
 
 /datum/supply_pack/medical/supplies
 	name = "Medical Supplies Crate"
